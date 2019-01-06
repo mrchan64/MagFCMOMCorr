@@ -1,4 +1,4 @@
-# MagFCMOMCorr
+# Magnetic Flow Cytometry Optical Manipulation Correlation
 
 1. Need correct index.html settings
 2. Need correct CSV file post process
