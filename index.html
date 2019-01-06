@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+  <!-- Basic Page Needs
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta charset="utf-8">
+  <title>Iric Cheng Optical Verification Viewer</title>
+  <meta name="description" content="OM Viewer">
+  <meta name="author" content="Matthew R. Chan">
+
+  <!-- Mobile Specific Metas
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- FONT
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <!--<link href="//fonts.googleapis.com/css?family=Raleway:400,300,600" rel="stylesheet" type="text/css">-->
+  <link href="css/Raleway.css" rel="stylesheet" type="text/css">
+
+  <!-- CSS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/skeleton.css">
+  <link rel="stylesheet" href="css/draggable.css">
+  <link rel="stylesheet" href="css/jquery-ui.min.css">
+
+  <!-- JS
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <script src="js/jquery-3.3.1.min.js"></script>
+  <script src="js/jquery-ui.min.js"></script>
+  <script src="js/plotly-latest.min.js"></script>
+
+  <!-- Favicon
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <link rel="icon" type="image/png" href="images/favicon.png">
+
+  <!-- File Constants -->
+  <script>
+  const movName = "OM.MOV";
+  const mainChan = 1;
+  const plot_scale = .5; // (s) on each side
+  const time_offset = 0;
+  const time_tick = .125; // (s) between tick on plot
+  </script>
+
+</head>
+<body>
+
+  <!-- Primary Page Layout
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+  <div class="container">
+    <div class="row" style="margin-top: 5%;">
+      <div class="two-thirds column">
+        <label for="player">Video:</label>
+        <video id="player" style="width: 100%;height: auto;" controls muted onplay="updatePlay()" onpause="updatePause()" ontimeupdate="eventTime()">
+          <source id="movielink" type="video/mp4">
+        </video>
+
+        <!-- Data display -->
+        <label for="plot">Data:</label>
+        <div id="plot" style="width: 100%;height: 500px; background-color: #dddddd; position: relative; border: 1px solid #dddddd; overflow: hidden">
+          <div id="graphBox" class="draggable" style="display:none; position: absolute; width: 100%; height: 100%; overflow: hidden">
+            <!--<div id="graphBoxInner" style="position: absolute; height: 100%"></div>-->
+          </div>
+          <div id="pointerLine" style="display:none"></div>
+          <div id="dropbox" class="draggable">
+            <div id="message">Drop CSV File Here</div>
+          </div>
+        </div>
+
+      </div>
+      <div class="one-third column">
+        <!-- Time Control -->
+        <div class="row">
+          <label for="timeControl">Time Control:</label>
+          <div class="twelve columns" id="timeControl">
+            <div class="three columns"><input class="button-primary u-full-width" type="button" value="<< 5s (J)" onclick="back5()"></div>
+            <div class="six columns"><input class="button-primary u-full-width" type="button" value="Play (Space, K)" id="playbutt" onclick="togglePlay()"></div>
+            <div class="three columns"><input class="button-primary u-full-width" type="button" value="5s >> (L)" onclick="forward5()"></div>
+          </div>
+        </div>
+        <!-- Frame Control -->
+        <div class="row">
+          <label for="frameControl">Frame Control:</label>
+          <div class="twelve columns" id="frameControl">
+            <div class="row">
+              <div class="six columns"><input class="button-primary u-full-width" type="button" value="Previous Frame (U)" onclick="backframe()"></div>
+              <div class="six columns"><input class="button-primary u-full-width" type="button" value="Next Frame (O)" onclick="forwardframe()"></div>
+            </div>
+            <div class="row">
+              <div class="six columns"><input class="button-primary u-full-width" type="button" value="Back 10 Frames" onclick="back10frame()"></div>
+              <div class="six columns"><input class="button-primary u-full-width" type="button" value="Forward 10 Frames" onclick="forward10frame()"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Time Display -->
+        <div class="row">
+          <label for="timeDisplay">Current Time:</label>
+          <div class="twelve columns" id="timeDisplay">
+            <div class="row">
+              <div class="seven columns"><input class="u-full-width" type="text" placeholder="00:00:000" id="currTimeValTokenated" readonly></div>
+            </div>
+            <div class="row">
+              <div class="seven columns"><input class="u-full-width" type="number" placeholder="0" id="currTimeVal" readonly></div>
+              <div class="five columns"><input class="button-primary u-full-width" type="button" id="copy" value="Copy!" onclick="toClipboard()"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Time Input -->
+        <div class="row">
+          <label for="timeInput">Input Time To Jump To (s):</label>
+          <div class="twelve columns" id="timeInput">
+            <div class="seven columns"><input class="u-full-width" type="number" placeholder="0" id="timeJumpVal"></div>
+            <div class="five columns"><input class="button-primary u-full-width" type="button" value="Jump!" onclick="setTime()"></div>
+          </div>
+        </div>
+        <!-- Speed Control -->
+        <div class="row">
+          <label for="speedControl">Playback Speed:</label>
+          <select class="u-full-width" id="speedControl" onchange="changeSpeed()">
+            <option value=".0625">0.0625x</option>
+            <option value=".125">0.125x</option>
+            <option value=".25">0.25x</option>
+            <option value=".5">0.5x</option>
+            <option value="1" selected="true">1x</option>
+            <option value="2">2x</option>
+            <option value="4">4x</option>
+          </select>
+        </div>
+        <!-- Offset Control -->
+        <div class="row">
+          <label for="offsetControl">Offset Amount:</label>
+          <div class="row" id="offsetControl">
+            <div class="seven columns"><input class="u-full-width" type="number" placeholder="0" id="offsetVal" onchange="updateOffset()"></div>
+          </div>
+        </div>
+        <!-- Filter Control -->
+        <div class="row">
+          <label id="filterlabel" for="filterControl">Turn Video Filter On:</label>
+          <div class="row" id="offsetControl">
+            <div class="seven columns"><input class="button-primary u-full-width" type="button" value="Toggle Video Filter!" id="togFilt" onclick="togFilt()"></div>
+          </div>
+          <div class="row" id="nightmode">
+            <div class="seven columns"><input class="button-primary u-full-width" type="button" value="Toggle Night Mode!" id="togNight" onclick="toggleNightMode()"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/plotting.js"></script>
+  <script src="js/playback.js"></script>
+  <script src="js/nightmode.js"></script>
+
+<!-- End Document
+  –––––––––––––––––––––––––––––––––––––––––––––––––– -->
+</body>
+</html>
